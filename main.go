@@ -39,13 +39,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	manager.AddAddresses([]net.IP{net.ParseIP(cfg.Seeder)})
+	if !cfg.Check {
+		manager.AddAddresses([]net.IP{net.ParseIP(cfg.Seeder)})
 
-	globalWg.Add(1)
-	go creep()
+		globalWg.Add(1)
+		go creep()
 
-	dnsServer := NewDNSServer(cfg.Host, cfg.Nameserver, cfg.Listen)
-	go dnsServer.Start()
+		dnsServer := NewDNSServer(cfg.Host, cfg.Nameserver, cfg.Listen)
+		go dnsServer.Start()
 
-	globalWg.Wait()
+		globalWg.Wait()
+	}else {
+		log.Printf("check the peer %v \n",cfg.CheckPeer)
+		manager.AddAddresses([]net.IP{net.ParseIP(cfg.CheckPeer)})
+		var wg sync.WaitGroup
+		wg.Add(1)
+		ip := net.ParseIP(cfg.CheckPeer)
+		doCreep(ip,wg)
+		wg.Wait()
+	}
 }

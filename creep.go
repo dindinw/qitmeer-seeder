@@ -45,63 +45,63 @@ func creep() {
 			time.Sleep(defaultAddressTimeout)
 			continue
 		}
-
 		wg.Add(len(ips))
-
 		for _, ip := range ips {
-			go func(ip net.IP) {
-				defer wg.Done()
-
-				host := net.JoinHostPort(ip.String(), activeNetParams.DefaultPort)
-
-				//p, err := peer.NewOutboundPeer(&peerConfig, host)
-				sp := NewServerPeer(host)
-				if sp == nil {
-					return
-				}
-				p := sp.P
-
-				manager.Attempt(ip)
-				conn, err := net.DialTimeout("tcp", p.Addr(), defaultNodeTimeout)
-				if err != nil {
-					return
-				}
-
-				c := connmgr.NewConnReq()
-				c.SetConn(conn)
-
-				p.AssociateConnection(c)
-
-				// Wait for the verack message or timeout in case of
-				// failure.
-				select {
-				case isBad := <-sp.IsBadPeerCh:
-					log.Printf("peer: %s isBad: %v ", p.NA().IP.String(), isBad)
-					if isBad {
-						manager.Bad(p.NA().IP)
-						p.Disconnect()
-						return
-					}
-					p.QueueMessage(message.NewMsgGetAddr(), nil)
-				case <-time.After(defaultNodeTimeout):
-					log.Printf("isBad timeout on peer %v", p.NA().IP.String())
-					manager.Bad(p.NA().IP)
-					p.Disconnect()
-					return
-				}
-
-				select {
-				case <-sp.OnAddrCh:
-				case <-time.After(defaultNodeTimeout):
-					log.Printf("getaddr timeout on peer %v", p.NA().IP.String())
-					p.Disconnect()
-					return
-				}
-				p.Disconnect()
-			}(ip)
+			go doCreep(ip,wg)
 		}
 		wg.Wait()
 	}
+}
+
+func doCreep(ip net.IP, wg sync.WaitGroup) {
+	defer wg.Done()
+
+	host := net.JoinHostPort(ip.String(), activeNetParams.DefaultPort)
+
+	//p, err := peer.NewOutboundPeer(&peerConfig, host)
+	sp := NewServerPeer(host)
+	if sp == nil {
+		return
+	}
+	p := sp.P
+
+	manager.Attempt(ip)
+	conn, err := net.DialTimeout("tcp", p.Addr(), defaultNodeTimeout)
+	if err != nil {
+		return
+	}
+
+	c := connmgr.NewConnReq()
+	c.SetConn(conn)
+
+	p.AssociateConnection(c)
+
+	// Wait for the verack message or timeout in case of
+	// failure.
+	select {
+	case isBad := <-sp.IsBadPeerCh:
+		log.Printf("peer: %s isBad: %v ", p.NA().IP.String(), isBad)
+		if isBad {
+			manager.Bad(p.NA().IP)
+			p.Disconnect()
+			return
+		}
+		p.QueueMessage(message.NewMsgGetAddr(), nil)
+	case <-time.After(defaultNodeTimeout):
+		log.Printf("isBad timeout on peer %v", p.NA().IP.String())
+		manager.Bad(p.NA().IP)
+		p.Disconnect()
+		return
+	}
+
+	select {
+	case <-sp.OnAddrCh:
+	case <-time.After(defaultNodeTimeout):
+		log.Printf("getaddr timeout on peer %v", p.NA().IP.String())
+		p.Disconnect()
+		return
+	}
+	p.Disconnect()
 }
 
 // ServerPeer servefr peer

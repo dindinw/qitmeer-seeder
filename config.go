@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -24,6 +25,8 @@ type config struct {
 	Seeder     string `short:"s" long:"default seeder" description:"IP address of a  working node"`
 	TestNet    bool   `short:"t" long:"testnet" description:"Use testnet"`
 	MixNet     bool   `short:"m" long:"mixnet" description:"Use mixnet"`
+	Check      bool   `short:"c" long:"check" description:"check a peer"`
+	CheckPeer  string `long:"peer" description:"IP address of the peer being checked"`
 }
 
 func loadConfig() (*config, error) {
@@ -55,6 +58,18 @@ func loadConfig() (*config, error) {
 		activeNetParams = &params.TestNetParams
 	} else if cfg.MixNet {
 		activeNetParams = &params.MixNetParams
+	}
+
+	if cfg.Check {
+		if len(cfg.CheckPeer) == 0 {
+			str := "Please specify peer IP to check"
+			log.Fatalln(str)
+		}
+		if net.ParseIP(cfg.CheckPeer) == nil {
+			str := fmt.Sprintf("Wrong IP address %v, Please specify a correct peer IPv4 or IPv6 address to check",cfg.CheckPeer)
+			log.Fatalln(str)
+		}
+		return &cfg, err
 	}
 
 	if len(cfg.Host) == 0 {
